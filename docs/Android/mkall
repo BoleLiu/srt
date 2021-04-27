@@ -1,18 +1,26 @@
 #!/bin/bash
 
-NDK=/opt/android-ndk-r19
+NDK=/Users/liujingbo/Library/Android/android-ndk-r21e
 
-openssl_ver=1.0.2q
-srt_version=1.3.1
+openssl_ver=1.1.1h
+#srt_version=1.4.2
 #srt_branch=dev
 
+API_LEVEL=21
 # Determine the path of the executing script
 BASE_DIR=$(readlink -f $0 | xargs dirname)
+SRT_DIR=$BASE_DIR/../../..
 
-wget -N https://www.openssl.org/source/openssl-$openssl_ver.tar.gz
+armeabi=0
+arm=1
+arm64=2
+x86=3
+x86_64=4
 
-if [ ! -d $BASE_DIR/srt ]; then
- git clone https://github.com/Haivision/srt srt
+# wget -N https://www.openssl.org/source/openssl-$openssl_ver.tar.gz
+
+if [ ! -d $SRT_DIR/srt ]; then
+ git clone https://github.com/Haivision/srt $SRT_DIR/srt
 # git -C $BASE_DIR/srt checkout v${srt_version}
 # git -C $BASE_DIR/srt checkout -b $srt_branch origin/$srt_branch
 fi
@@ -21,36 +29,51 @@ fi
 toolchain=$NDK/toolchains/llvm/prebuilt/linux-x86_64
 
 # Cross-compiler tool prefix
-declare -A target_hosts
+declare -a target_hosts
 target_hosts=(
- [arm]=arm-linux-androideabi
- [arm64]=aarch64-linux-android
- [x86]=i686-linux-android
- [x86_64]=x86_64-linux-android
+ [$armeabi]=arm-linux-androideabi
+ [$arm]=arm-linux-androideabi
+ [$arm64]=aarch64-linux-android
+ [$x86]=i686-linux-android
+ [$x86_64]=x86_64-linux-android
 )
 
 # Cross-compiler prefix for -clang and -clang++ has api version
-declare -A target_api
+declare -a target_api
 target_api=(
- [arm]=armv7a-linux-androideabi16
- [arm64]=aarch64-linux-android21
- [x86]=i686-linux-android16
- [x86_64]=x86_64-linux-android21
+ [$armeabi]=armv5te-linux-androideabi16
+ [$arm]=armv7a-linux-androideabi16
+ [$arm64]=aarch64-linux-android21
+ [$x86]=i686-linux-android16
+ [$x86_64]=x86_64-linux-android21
 )
 
-declare -A sysroots
+declare -a sysroots
 sysroots=(
- [arm]=$BASE_DIR/armeabi-v7a
- [arm64]=$BASE_DIR/arm64-v8a
- [x86]=$BASE_DIR/x86
- [x86_64]=$BASE_DIR/x86_64
+ [$armeabi]=${BASE_DIR}/armeabi
+ [$arm]=${BASE_DIR}/armeabi-v7a
+ [$arm64]=${BASE_DIR}/arm64-v8a
+ [$x86]=${BASE_DIR}/x86
+ [$x86_64]=${BASE_DIR}/x86_64
 )
 
-for arch in arm arm64 x86 x86_64; do
- rm -rf $BASE_DIR/openssl-$openssl_ver
- tar xf $BASE_DIR/openssl-$openssl_ver.tar.gz
- $BASE_DIR/mkssl -t $toolchain -h ${target_hosts[$arch]} -a ${target_api[$arch]} -s $BASE_DIR/openssl-$openssl_ver -i ${sysroots[$arch]}
+declare -a archabi
+archabi=(
+ [$armeabi]=armeabi
+ [$arm]=armeabi-v7a
+ [$arm64-v8a]=arm64-v8a
+ [$x86]=x86
+ [$x86_64]=x86_64
+)
 
- git -C $BASE_DIR/srt clean -fd
- $BASE_DIR/mksrt -t $toolchain -h ${target_hosts[$arch]} -a ${target_api[$arch]} -s $BASE_DIR/srt -i ${sysroots[$arch]}
+$BASE_DIR/mkssl -n $NDK -o $openssl_ver -a $API_LEVEL
+
+# $armeabi $arm $arm64-v8a $x86 $x86_64
+for arch in $arm $arm64-v8a $x86 ; do
+ #rm -rf $BASE_DIR/openssl-$openssl_ver
+ #tar xf $BASE_DIR/openssl-$openssl_ver.tar.gz
+ #$BASE_DIR/mkssl -t $toolchain -h ${target_hosts[$arch]} -a ${target_api[$arch]} -s $BASE_DIR/openssl-$openssl_ver -i ${sysroots[$arch]}
+
+ # git -C $SRT_DIR/srt clean -fd
+ $BASE_DIR/mksrt -t $toolchain -h ${target_hosts[$arch]} -a ${target_api[$arch]} -s $SRT_DIR/srt -i ${sysroots[$arch]} -b ${archabi[$arch]} -n  $NDK -l $API_LEVEL
 done
